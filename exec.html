@@ -28,13 +28,19 @@
         <div class="hint">ระบบจะพยายามดึง HTML/JSON แล้วฝังลงหน้าเพจทันที (ไม่มีแถบรายงานของ Google)</div>
       </header>
 
-      <div id="content"><!-- iframe srcdoc จะถูกใส่ที่นี่ --></div>
+      <div id="content">
+        <!-- จะใส่ iframe srcdoc ที่นี่เมื่อโหลดสำเร็จ -->
+      </div>
+
       <div id="status" class="status">กำลังโหลด…</div>
     </div>
   </div>
 
   <script>
+    // ======= ตั้งลิงก์ของคุณที่นี่ =======
     const APP_URL = "https://script.google.com/macros/s/AKfycbwgy4b-0AYtb92hS2boVZsV845xiaZHN-NpgAuqO4MCpb7_NNLBhMeOhyVR5REb0Vilgg/exec";
+    // =====================================
+
     const content = document.getElementById('content');
     const statusEl = document.getElementById('status');
 
@@ -42,7 +48,9 @@
       setStatus("กำลังดึงเนื้อหาจากลิงก์…");
       try {
         const res = await fetch(APP_URL, { mode: 'cors', credentials: 'omit' });
+        // ถ้าโดน CORS บล็อก บราวเซอร์บางตัวจะคืน type="opaque" หรือ throw
         if (!res.ok || res.type === 'opaque') throw new Error('CORS blocked or non-OK');
+
         const ct = (res.headers.get('content-type') || '').toLowerCase();
         const body = await res.text();
 
@@ -60,17 +68,19 @@
       } catch (err) {
         console.warn('CORS/Fetch failed, fallback:', err);
         fallbackOpen(APP_URL);
-        setStatus('ไม่สามารถฝังโดยตรง (CORS) • เปิดลิงก์ต้นฉบับ และลองฝังแบบ iframe ตรง', true);
+        setStatus('ไม่สามารถฝังโดยตรง (CORS) • เปิดลิงก์ต้นฉบับด้านล่าง และลองฝังแบบ iframe ตรง', true);
       }
     })();
 
     function mountSrcdoc(html){
       const frame = document.createElement('iframe');
+      // sandbox เพื่อความปลอดภัย แต่เปิด same-origin ไว้ให้สคริปต์ภายในทำงานได้
       frame.setAttribute('sandbox', 'allow-forms allow-scripts allow-same-origin allow-popups');
       frame.srcdoc = html;
       content.innerHTML = '';
       content.appendChild(frame);
     }
+
     function fallbackOpen(url){
       content.innerHTML = `
         <div class="error">
@@ -80,12 +90,16 @@
         <iframe src="${url}" referrerpolicy="no-referrer"></iframe>
       `;
     }
+
     function setStatus(msg, warn=false){
       statusEl.innerHTML = msg;
       statusEl.style.color = warn ? '#ffb4b4' : 'var(--muted)';
     }
+
     function escapeHtml(s){
-      return s.replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      return s.replace(/[&<>"']/g, (c)=>({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[c]));
     }
   </script>
 </body>
