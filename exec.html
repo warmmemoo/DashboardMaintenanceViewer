@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Apps Script Exec Viewer</title>
+  <style>
+    :root{--bg:#0b0f14;--card:#121820;--ink:#e8f0ff;--muted:#9fb3c8;--accent:#3da9fc;}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#0b0f14,#0e141c 40%,#0b0f14);
+         color:var(--ink);font:16px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}
+    .wrap{max-width:980px;margin:32px auto;padding:0 16px}
+    .card{background:var(--card);border:1px solid #1c2530;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+    header{padding:18px 20px;border-bottom:1px solid #1c2530}
+    header h1{margin:0;font-size:18px;letter-spacing:.2px}
+    .status{padding:10px 14px;border-top:1px solid #1c2530;color:var(--muted);font-size:13px}
+    .hint{color:var(--muted);font-size:13px}
+    iframe{width:100%;height:72vh;border:0;border-bottom-left-radius:16px;border-bottom-right-radius:16px;background:#0b0f14}
+    .error{padding:20px;color:#ffb4b4}
+    .link{color:var(--accent);text-decoration:none;border-bottom:1px dotted var(--accent)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <h1>แสดงผลลิงก์ Google Apps Script <code>/exec</code> บน GitHub Pages</h1>
+        <div class="hint">ระบบจะพยายามดึง HTML/JSON แล้วฝังลงหน้าเพจทันที (ไม่มีแถบรายงานของ Google)</div>
+      </header>
+
+      <div id="content"><!-- iframe srcdoc จะถูกใส่ที่นี่ --></div>
+      <div id="status" class="status">กำลังโหลด…</div>
+    </div>
+  </div>
+
+  <script>
+    const APP_URL = "https://script.google.com/macros/s/AKfycbwgy4b-0AYtb92hS2boVZsV845xiaZHN-NpgAuqO4MCpb7_NNLBhMeOhyVR5REb0Vilgg/exec";
+    const content = document.getElementById('content');
+    const statusEl = document.getElementById('status');
+
+    (async function run(){
+      setStatus("กำลังดึงเนื้อหาจากลิงก์…");
+      try {
+        const res = await fetch(APP_URL, { mode: 'cors', credentials: 'omit' });
+        if (!res.ok || res.type === 'opaque') throw new Error('CORS blocked or non-OK');
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        const body = await res.text();
+
+        if (ct.includes('text/html')) {
+          mountSrcdoc(body);
+          setStatus('สำเร็จ: ฝัง HTML แล้ว (srcdoc).');
+        } else if (ct.includes('application/json')) {
+          const pretty = escapeHtml(JSON.stringify(JSON.parse(body), null, 2));
+          mountSrcdoc(`<pre style="padding:20px;white-space:pre-wrap;word-wrap:break-word">${pretty}</pre>`);
+          setStatus('สำเร็จ: โหลด JSON แล้ว (เรนเดอร์เป็นข้อความ).');
+        } else {
+          mountSrcdoc(`<pre style="padding:20px;white-space:pre-wrap">${escapeHtml(body)}</pre>`);
+          setStatus('สำเร็จ: โหลดข้อมูลแล้ว (ชนิดเนื้อหาอื่น).');
+        }
+      } catch (err) {
+        console.warn('CORS/Fetch failed, fallback:', err);
+        fallbackOpen(APP_URL);
+        setStatus('ไม่สามารถฝังโดยตรง (CORS) • เปิดลิงก์ต้นฉบับ และลองฝังแบบ iframe ตรง', true);
+      }
+    })();
+
+    function mountSrcdoc(html){
+      const frame = document.createElement('iframe');
+      frame.setAttribute('sandbox', 'allow-forms allow-scripts allow-same-origin allow-popups');
+      frame.srcdoc = html;
+      content.innerHTML = '';
+      content.appendChild(frame);
+    }
+    function fallbackOpen(url){
+      content.innerHTML = `
+        <div class="error">
+          ไม่สามารถดึงข้ามโดเมน (CORS) จากต้นทางได้
+          • <a class="link" href="${url}" target="_blank" rel="noopener">เปิดลิงก์ต้นฉบับในแท็บใหม่</a>
+        </div>
+        <iframe src="${url}" referrerpolicy="no-referrer"></iframe>
+      `;
+    }
+    function setStatus(msg, warn=false){
+      statusEl.innerHTML = msg;
+      statusEl.style.color = warn ? '#ffb4b4' : 'var(--muted)';
+    }
+    function escapeHtml(s){
+      return s.replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+  </script>
+</body>
+</html>
